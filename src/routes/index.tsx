@@ -45,13 +45,12 @@ function KartaPage() {
   const [share, setShare] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
 
-  // --- RIKTIG LIVE-GPS & ADRESS-DATA ---
+  // --- LIVE-GPS & ADRESS-DATA ---
   const [lat, setLat] = useState(59.3302);
   const [lng, setLng] = useState(18.0581);
   const [streetName, setStreetName] = useState("Hämtar din position...");
   const [zoneCode, setZoneCode] = useState("4021");
 
-  // Hämta din exakta geografiska position och slå upp adressen direkt
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -61,7 +60,6 @@ function KartaPage() {
           setLat(currentLat);
           setLng(currentLng);
 
-          // Riktigt API-anrop som läser dina GPS-koordinater och ger dig namnet på gatan du står på
           try {
             const res = await fetch(`https://openstreetmap.org{currentLat}&lon=${currentLng}`);
             const data = await res.json();
@@ -70,7 +68,6 @@ function KartaPage() {
               const city = data.address.city || data.address.town || "";
               setStreetName(`${street}${city ? ", " + city : ""}`);
               
-              // Räkna ut en dynamisk EasyPark/Parkster-zonkod baserat på din position
               const calculatedZone = Math.floor(4000 + (currentLat - 59) * 100).toString();
               setZoneCode(calculatedZone);
             }
@@ -88,7 +85,6 @@ function KartaPage() {
     }
   }, []);
 
-  // Uppdatera kartvyn när användaren klickar på centrera-knappen [🎯]
   const handleCenterPosition = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition((pos) => {
@@ -104,12 +100,11 @@ function KartaPage() {
     [minutes],
   );
 
-  // Generera en live, responsiv och interaktiv kartvy med mörkt tema inbäddat
   const mapUrl = `https://stadiamaps.com{lat},${lng}&zoom=16&marker=${lat},${lng}`;
 
   return (
     <div className="relative flex h-full flex-col">
-      {/* 🗺️ RIKTIG LIVE-KARTA (Inbäddad iFrame med mörkt tema som garanterat bygger utan fel) */}
+      {/* 🗺️ LIVE-KARTA */}
       <div className="absolute inset-0 z-0">
         <iframe 
           src={mapUrl}
@@ -152,13 +147,15 @@ function KartaPage() {
           </button>
         </div>
 
-        {/* Bottenpanelen */}
+        {/* 📱 SÄKRAD BOTTENPANEL — Garanterar att inga element eller knappar täcks av TabBar */}
         <section 
-          className={`glass rounded-t-[2rem] px-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] shadow-[0_-20px_60px_-20px_rgba(0,0,0,0.9)] transition-all duration-500 ease-in-out flex flex-col ${
-            isExpanded ? "max-h-[58vh] pt-3" : "h-[135px] pt-2 pb-16 overflow-hidden border-b-0"
+          className={`glass rounded-t-[2rem] px-5 shadow-[0_-20px_60px_-20px_rgba(0,0,0,0.9)] transition-all duration-500 ease-in-out flex flex-col ${
+            isExpanded 
+              ? "max-h-[58vh] pt-3 pb-[calc(7.5rem+env(safe-area-inset-bottom))]" 
+              : "h-[145px] pt-2 pb-20 overflow-hidden border-b-0"
           }`}
         >
-          {/* Centrerad stäng/öppna-knapp som vilar perfekt ovanför navigeringsbaren i minimerat läge */}
+          {/* Centrerad stäng/öppna-knapp */}
           <div className="w-full flex justify-center pt-1 pb-2 shrink-0">
             <button
               type="button"
@@ -175,8 +172,8 @@ function KartaPage() {
             </button>
           </div>
 
-          {/* Allt detta innehåll döljs mjukt när panelen är minimerad */}
-          <div className={`flex-1 overflow-y-auto space-y-4 transition-opacity duration-300 custom-scrollbar ${
+          {/* Innehållet har extra botten-luft (pb-12) så att rullning visar sista knappen perfekt */}
+          <div className={`flex-1 overflow-y-auto space-y-4 pb-12 transition-opacity duration-300 custom-scrollbar ${
             isExpanded ? "opacity-100" : "opacity-0 pointer-events-none"
           }`}>
             {/* Status card */}
@@ -191,7 +188,7 @@ function KartaPage() {
                 <>
                   <p className="font-display text-2xl font-bold text-success">🟢 Ledigt & Gratis!</p>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Ingen avgift på {streetName.split(",")[0]} vid kl. {formatFuture(minutes)}. Du kan stå kvar till
+                    Ingen avgift på {streetName.split(",")} vid kl. {formatFuture(minutes)}. Du kan stå kvar till
                     måndag 09:00.
                   </p>
                 </>
@@ -273,13 +270,15 @@ function KartaPage() {
               </div>
             </div>
 
-            {/* Primary CTA */}
-            <button
-              onClick={() => setCamera(true)}
-              className="tap glow-primary w-full rounded-3xl bg-primary py-5 font-display text-lg font-bold tracking-tight text-primary-foreground"
-            >
-              📸 FOTA SKYLT (AI)
-            </button>
+            {/* Primary CTA (FOTA SKYLT) med rejäl marginal i botten */}
+            <div className="pt-2 pb-6">
+              <button
+                onClick={() => setCamera(true)}
+                className="tap glow-primary w-full rounded-3xl bg-primary py-5 font-display text-lg font-bold tracking-tight text-primary-foreground shadow-lg"
+              >
+                📸 FOTA SKYLT (AI)
+              </button>
+            </div>
           </div>
         </section>
       </div>
@@ -287,8 +286,8 @@ function KartaPage() {
       {camera && <CameraOverlay onClose={() => setCamera(false)} />}
 
       {share && (
-        <div className="fixed inset-0 z- flex items-end justify-center bg-black/60 backdrop-blur-sm">
-          <div className="animate-pk-rise w-full max-w-[28rem] rounded-t-[2rem] border-t border-hairline bg-surface p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <div className="fixed inset-0 z-[55] flex items-end justify-center bg-black/60 backdrop-blur-sm">
+          <div className="animate-pk-rise w-full max-w-[28rem] rounded-t-[2rem] border-t border-hairline bg-surface p-5 pb-[max(2.5rem,env(safe-area-inset-bottom))]">
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
               <h2 className="truncate text-lg font-bold">Dela den gröna zonen</h2>
               <button
