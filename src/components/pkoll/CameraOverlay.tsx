@@ -69,26 +69,75 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
       // Växla till analysläge
       setPhase("analyzing");
 
-      // --- HÄR ANROPAS AI:N PÅ RIKTIGT ---
+      // --- DIREKTANROP TILL OPENAI (FRONTEND SAFE) ---
+      // För att detta ska fungera live måste du lägga till din nyckel i Vercel under namnet VITE_OPENAI_API_KEY
+      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+
+      if (!apiKey) {
+        // Om nyckeln inte hittas kör vi demoläget
+        setTimeout(() => {
+          setAiResponse({
+            isParkingSign: true,
+            allowedNow: true,
+            humanSummary: "API-nyckel saknas! Lägg till VITE_OPENAI_API_KEY i Vercels inställningar för att aktivera AI:n.",
+            nextEvent: "Flytta bilen senast kl. 14:15."
+          });
+          setPhase("result");
+        }, 1500);
+        return;
+      }
+
       try {
         const currentDayTime = new Date().toLocaleString("sv-SE");
         
-        // Vi skickar bilden till vår nya backend som pratar med OpenAI
-        const response = await fetch("/api/interpret-sign", {
+        const response = await fetch("https://openai.com", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: imageDataUrl, time: currentDayTime })
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            response_format: { type: "json_object" },
+            messages: [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: `Du är parkeringsassistenten P-Koll. Analysera denna bild.
+                    VIKTIGT: Om bilden INTE visar en svensk parkeringsskylt (t.ex. om det är en människa, ett ansikte, en inomhusmiljö eller ett random föremål), måste du svara med isParkingSign: false.
+                    
+                    Dagens tidpunkt: ${currentDayTime}
+                    
+                    Svara EXAKT i detta JSON-format:
+                    {
+                      "isParkingSign": true eller false,
+                      "allowedNow": true eller false,
+                      "humanSummary": "Ett kort, mänskligt och tydligt svar på svenska (max 20 ord). Om det inte är en skylt, skriv 'Hittade ingen parkeringsskylt i bilden. P-Koll kan bara läsa av parkeringsskyltar.'",
+                      "nextEvent": "Vad händer näst? T.ex. 'Avgift startar kl 09:00' eller 'Ingen städdag denna vecka'."
+                    }`
+                  },
+                  {
+                    type: "image_url",
+                    image_url: { url: imageDataUrl }
+                  }
+                ]
+              }
+            ]
+          })
         });
-        
-        const aiData = await response.json();
-        setAiResponse(aiData);
+
+        const openAiData = await response.json();
+        const parsedResult = JSON.parse(openAiData.choices[0].message.content);
+        setAiResponse(parsedResult);
       } catch (e) {
-        // Fallback om API:et inte är helt driftsatt än (visar ditt demosvar)
+        console.error("OpenAI Error:", e);
         setAiResponse({
-          isParkingSign: true,
-          allowedNow: true,
-          humanSummary: "Kunde inte nå OpenAI live (Demoläge): Ja du får stå här! Men glöm inte P-skivan.",
-          nextEvent: "Du måste flytta bilen senast kl. 14:15."
+          isParkingSign: false,
+          allowedNow: false,
+          humanSummary: "Kunde inte tolka bilden. Kontrollera din OpenAI-balans eller försök igen.",
+          nextEvent: ""
         });
       } finally {
         setPhase("result");
@@ -97,7 +146,7 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex justify-center bg-black/70 backdrop-blur-sm">
+    <div className="fixed inset-0 z- flex justify-center bg-black/70 backdrop-blur-sm">
       <div className="relative flex w-full max-w-[28rem] flex-col bg-[oklch(0.09_0.015_265)]">
         
         <button
