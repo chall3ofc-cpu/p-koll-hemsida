@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { X, Camera, ShieldCheck, Clock, RefreshCw, AlertTriangle } from "lucide-react";
+import { Camera, ShieldCheck, Clock, RefreshCw, AlertTriangle, ArrowLeft } from "lucide-react";
 
 export function CameraOverlay({ onClose }: { onClose: () => void }) {
   const [phase, setPhase] = useState<"camera" | "analyzing" | "result">("camera");
@@ -9,7 +9,6 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
-  // --- RIKTIGA AI-SVAR FRÅN OPENAI ---
   const [aiResponse, setAiResponse] = useState({
     isParkingSign: true,
     allowedNow: true,
@@ -66,15 +65,11 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
       
-      // Växla till analysläge
       setPhase("analyzing");
 
-      // --- DIREKTANROP TILL OPENAI (FRONTEND SAFE) ---
-      // För att detta ska fungera live måste du lägga till din nyckel i Vercel under namnet VITE_OPENAI_API_KEY
       const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
 
       if (!apiKey) {
-        // Om nyckeln inte hittas kör vi demoläget
         setTimeout(() => {
           setAiResponse({
             isParkingSign: true,
@@ -115,7 +110,7 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
                       "isParkingSign": true eller false,
                       "allowedNow": true eller false,
                       "humanSummary": "Ett kort, mänskligt och tydligt svar på svenska (max 20 ord). Om det inte är en skylt, skriv 'Hittade ingen parkeringsskylt i bilden. P-Koll kan bara läsa av parkeringsskyltar.'",
-                      "nextEvent": "Vad händer näst? T.ex. 'Avgift startar kl 09:00' eller 'Ingen städdag denna vecka'."
+                      "nextEvent": "Vad händer näst? T.ex. 'Avgift startar kl 09:00' eller 'Ingen städdag denna week'."
                     }`
                   },
                   {
@@ -129,7 +124,7 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
         });
 
         const openAiData = await response.json();
-        const parsedResult = JSON.parse(openAiData.choices[0].message.content);
+        const parsedResult = JSON.parse(openAiData.choices.message.content);
         setAiResponse(parsedResult);
       } catch (e) {
         console.error("OpenAI Error:", e);
@@ -146,20 +141,25 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z- flex justify-center bg-black/70 backdrop-blur-sm">
-      <div className="relative flex w-full max-w-[28rem] flex-col bg-[oklch(0.09_0.015_265)]">
+    /* h-screen w-screen och z-[100] garanterar att rutan täcker absolut ALLT på telefonen */
+    <div className="fixed inset-0 h-screen w-screen z-[100] flex justify-center bg-slate-950 overflow-hidden">
+      <div className="relative flex h-full w-full max-w-[28rem] flex-col bg-black">
         
-        <button
-          type="button"
-          onClick={onClose}
-          className="tap glass absolute right-4 top-[max(1rem,env(safe-area-inset-top))] z-50 grid size-10 place-items-center rounded-full text-white bg-slate-950/40"
-        >
-          <X className="size-5" />
-        </button>
+        {/* TOPP-BAR: Tydlig "Tillbaka"-knapp för att gå ur kameran när som helst */}
+        <div className="absolute top-0 left-0 right-0 z-[110] flex items-center px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-4 bg-gradient-to-b from-black/80 to-transparent">
+          <button
+            type="button"
+            onClick={onClose}
+            className="tap flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/90 backdrop-blur border border-slate-800 text-sm font-semibold text-white shadow-lg active:scale-95 transition-transform"
+          >
+            <ArrowLeft className="size-4 text-sky-400" />
+            <span>Tillbaka</span>
+          </button>
+        </div>
 
         {phase !== "result" ? (
-          <div className="flex flex-1 flex-col">
-            <div className="relative flex-1 overflow-hidden bg-black flex items-center justify-center">
+          <div className="flex flex-1 flex-col h-full justify-between">
+            <div className="relative flex-1 bg-black flex items-center justify-center">
               
               {phase === "camera" && !cameraError && (
                 <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 h-full w-full object-cover" />
@@ -176,41 +176,41 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
               )}
 
               {!cameraError && (
-                <div className="absolute inset-x-10 inset-y-24 rounded-3xl border-2 border-sky-500/40 z-10 bg-transparent shadow-[0_0_0_9999px_rgba(0,0,0,0.4)]">
-                  <div className="animate-pk-scan absolute inset-x-0 top-1/2 h-1 bg-gradient-to-r from-transparent via-sky-400 to-transparent shadow-[0_0_12px_#38bdf8]" />
+                <div className="absolute inset-x-8 inset-y-28 rounded-3xl border-2 border-sky-500/50 z-10 bg-transparent shadow-[0_0_0_9999px_rgba(0,0,0,0.55)] pointer-events-none">
+                  <div className="animate-pk-scan absolute inset-x-0 top-1/2 h-1 bg-gradient-to-r from-transparent via-sky-400 to-transparent shadow-[0_0_15px_#38bdf8]" />
                   
                   {phase === "analyzing" && (
-                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-950/80 backdrop-blur border border-sky-500/30 px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-2xl">
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-950/90 backdrop-blur border border-sky-500/30 px-5 py-3 rounded-2xl flex items-center gap-2 shadow-2xl">
                       <RefreshCw className="size-4 text-sky-400 animate-spin" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-sky-400">P-Koll AI läser skylt...</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-sky-400">P-Koll läser skylt...</span>
                     </div>
                   )}
                 </div>
               )}
 
-              <p className="absolute inset-x-0 bottom-6 text-center text-xs text-slate-300 font-medium z-10 bg-slate-950/50 py-1.5 max-w-[20rem] mx-auto rounded-full border border-slate-900/30">
-                {phase === "analyzing" ? "AI analyserar text och tider…" : "Rikta kameran mot parkeringsskylten"}
+              <p className="absolute inset-x-0 bottom-6 text-center text-xs text-slate-300 font-medium z-10 bg-slate-950/70 py-2 max-w-[18rem] mx-auto rounded-full border border-slate-900/40 backdrop-blur-sm">
+                {phase === "analyzing" ? "AI analyserar text och tider…" : "Rama in parkeringsskylten i rutan"}
               </p>
             </div>
-            {/* Kameraavtryckaren */}
-            <div className="grid place-items-center pb-[max(2rem,env(safe-area-inset-bottom))] pt-6 bg-black/40 border-t border-slate-900/40">
+            {/* ISOLERAD KAMERAKNAPP (Ligger helt fritt och kan inte täckas över) */}
+            <div className="grid place-items-center pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-6 bg-slate-950 border-t border-slate-900/60 z-30 shrink-0">
               <button
                 type="button"
                 onClick={capturePhoto}
                 disabled={phase === "analyzing" || !!cameraError}
                 aria-label="Ta bild på skylten"
-                className="tap grid size-20 place-items-center rounded-full border-4 border-white bg-white/10 hover:bg-white/20 active:scale-95 disabled:opacity-40 transition-all shadow-xl"
+                className="tap grid size-20 place-items-center rounded-full border-4 border-white bg-white/10 hover:bg-white/20 active:scale-95 disabled:opacity-40 transition-all shadow-2xl"
               >
-                <div className="size-14 rounded-full bg-white flex items-center justify-center">
+                <div className="size-14 rounded-full bg-white flex items-center justify-center shadow-lg">
                   <Camera className="size-6 text-slate-950" />
                 </div>
               </button>
             </div>
           </div>
         ) : (
-          /* DYNAMISK VY SOM ANPASSAR SIG EFTER OM BILDEN ÄR EN SKYLT ELLER INTE */
-          <div className="flex flex-1 flex-col justify-end p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900">
-            <div className={`animate-pk-rise rounded-3xl border p-6 shadow-2xl space-y-4 bg-slate-900/80 backdrop-blur ${
+          /* FULLSKÄRMS AI-RESULTAT (Helt ostört överst på skärmen) */
+          <div className="flex flex-1 flex-col justify-end p-5 pb-[max(2.5rem,env(safe-area-inset-bottom))] bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 h-full">
+            <div className={`animate-pk-rise rounded-3xl border p-6 shadow-2xl space-y-4 bg-slate-900/90 backdrop-blur-md ${
               !aiResponse.isParkingSign 
                 ? "border-amber-500/30" 
                 : aiResponse.allowedNow 
@@ -218,7 +218,6 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
                   : "border-rose-500/30"
             }`}>
               
-              {/* Dynamisk rubrik baserad på AI-analysen */}
               <div className={`flex items-center gap-2 ${
                 !aiResponse.isParkingSign 
                   ? "text-amber-400" 
@@ -242,7 +241,6 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
                 </span>
               </div>
               
-              {/* Mänsklig sammanfattning från OpenAI */}
               <div>
                 <h2 className={`text-2xl font-black tracking-tight ${
                   !aiResponse.isParkingSign 
@@ -262,7 +260,6 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
                 </p>
               </div>
 
-              {/* Tidsvarning / Nästa händelse (Visas endast om det faktiskt var en parkeringsskylt) */}
               {aiResponse.isParkingSign && aiResponse.nextEvent && (
                 <div className={`flex items-start gap-3 rounded-2xl p-4 border ${
                   aiResponse.allowedNow 
@@ -272,12 +269,11 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
                   <Clock className="size-5 shrink-0 mt-0.5" />
                   <div>
                     <p className="text-sm font-bold">{aiResponse.nextEvent}</p>
-                    <p className="text-[11px] opacity-70 mt-0.5">Tider och zoner har matchats mot din GPS-position.</p>
+                    <p className="text-[11px] opacity-70 mt-0.5">Matchat mot din unika live-GPS-position.</p>
                   </div>
                 </div>
               )}
 
-              {/* Tillbakaknapp */}
               <button
                 type="button"
                 onClick={onClose}
