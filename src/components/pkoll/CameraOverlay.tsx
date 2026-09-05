@@ -9,9 +9,6 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
-  // Styr om vi ska simulera en lyckad skylt eller ett dolt fel för testet
-  const [clickCount, setClickCount] = useState(0);
-
   const [aiResponse, setAiResponse] = useState({
     isParkingSign: false,
     allowedNow: false,
@@ -50,7 +47,7 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
     };
   }, [phase]);
 
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     if (!videoRef.current) return;
 
     const video = videoRef.current;
@@ -70,30 +67,31 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
       
       setPhase("analyzing");
 
-      // --- 100% GRATIS SMART PROTOTYP-LOGIK ---
-      // Hemlig funktion: Om du klickar på avtryckaren när clickCount är jämnt (0, 2, 4...) blir det fel (t.ex. om du testar på dig själv).
-      // Om du vill visa en perfekt tolkning för en investerare, klicka på texten "Rama in parkeringsskylten" först för att ändra läge!
-      
-      setTimeout(() => {
-        if (clickCount % 2 === 0) {
-          // Simulera att AI:n upptäcker att det INTE är en parkeringsskylt
-          setAiResponse({
-            isParkingSign: false,
-            allowedNow: false,
-            humanSummary: "Hittade ingen giltig parkeringsskylt i bilden. P-Koll AI kan bara läsa av och tolka svenska vägmärken för parkering. Försök igen!",
-            nextEvent: ""
-          });
-        } else {
-          // Simulera en perfekt, knivskarp AI-avläsning av en riktig skylt
-          setAiResponse({
-            isParkingSign: true,
-            allowedNow: true,
-            humanSummary: "Giltig P-skiva identifierad. Du parkerar lagligt just nu på gatan enligt gällande zonförordning.",
-            nextEvent: "Flytta bilen senast kl. 14:15 innan den tidsbegränsade taxan startar."
-          });
-        }
+      // SKARPT ANROP TILL DIN NYA SÄKRA BACKEND-SERVER
+      try {
+        const currentDayTime = new Date().toLocaleString("sv-SE");
+        
+        const response = await fetch("/api/interpret-sign", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: imageDataUrl, time: currentDayTime })
+        });
+        
+        if (!response.ok) throw new Error("Serverfel");
+        
+        const aiData = await response.json();
+        setAiResponse(aiData);
+      } catch (e) {
+        console.error("Det gick inte att nå AI-servern:", e);
+        setAiResponse({
+          isParkingSign: false,
+          allowedNow: false,
+          humanSummary: "Kunde inte tolka bilden. Kontrollera att din OpenAI-nyckel är inlagd på Vercel och har pengar på saldot.",
+          nextEvent: ""
+        });
+      } finally {
         setPhase("result");
-      }, 2000);
+      }
     }
   };
 
@@ -101,7 +99,6 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 h-screen w-screen z-50 flex justify-center bg-slate-950 overflow-hidden">
       <div className="relative flex h-full w-full max-w-[28rem] flex-col bg-black">
         
-        {/* Topp-bar med tillbaka-knapp */}
         <div className="absolute top-0 left-0 right-0 z-50 flex items-center px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-4 bg-gradient-to-b from-black/80 to-transparent">
           <button
             type="button"
@@ -144,18 +141,9 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
                 </div>
               )}
 
-              {/* Denna textknapp blir din hemliga trigger! Klickar du på den växlar appen läge till "Perfekt P-skylt" */}
-              <button 
-                type="button"
-                onClick={() => setClickCount(prev => prev + 1)}
-                className="absolute inset-x-0 bottom-6 text-center text-xs text-slate-300 font-medium z-30 bg-slate-950/80 py-2.5 max-w-[18rem] mx-auto rounded-full border border-sky-400/40 backdrop-blur-sm shadow-lg px-4"
-              >
-                {phase === "analyzing" 
-                  ? "AI analyserar text och tider…" 
-                  : clickCount % 2 === 0 
-                    ? "Rikta kameran mot parkeringsskylten" 
-                    : "🔒 Demoläge aktiverat: Nästa bild godkänns!"}
-              </button>
+              <p className="absolute inset-x-0 bottom-6 text-center text-xs text-slate-300 font-medium z-10 bg-slate-950/70 py-2 max-w-[18rem] mx-auto rounded-full border border-slate-900/40 backdrop-blur-sm">
+                {phase === "analyzing" ? "AI analyserar text och tider…" : "Rama in parkeringsskylten i rutan"}
+              </p>
             </div>
             {/* Kameraavtryckaren */}
             <div className="grid place-items-center pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-6 bg-slate-950 border-t border-slate-900/60 z-30 shrink-0">
@@ -173,7 +161,7 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
             </div>
           </div>
         ) : (
-          /* FULLSKÄRMS AI-RESULTAT — Dynamisk vy baserad på det valda demoläget */
+          /* FULLSKÄRMS AI-RESULTAT — Helt baserat på äkta data från OpenAI på servern */
           <div className="flex flex-1 flex-col justify-end p-5 pb-[max(2.5rem,env(safe-area-inset-bottom))] bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 h-full">
             <div className={`animate-pk-rise rounded-3xl border p-6 shadow-2xl space-y-4 bg-slate-900/90 backdrop-blur-md ${
               !aiResponse.isParkingSign 
@@ -234,7 +222,7 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
                   <Clock className="size-5 shrink-0 mt-0.5" />
                   <div>
                     <p className="text-sm font-bold">{aiResponse.nextEvent}</p>
-                    <p className="text-[11px] opacity-70 mt-0.5">Matchat lokalt mot gällande tidstabell.</p>
+                    <p className="text-[11px] opacity-70 mt-0.5">Beräknat säkert via P-Koll API-server.</p>
                   </div>
                 </div>
               )}
