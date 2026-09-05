@@ -10,8 +10,8 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
   const [cameraError, setCameraError] = useState<string | null>(null);
 
   const [aiResponse, setAiResponse] = useState({
-    isParkingSign: true,
-    allowedNow: true,
+    isParkingSign: false,
+    allowedNow: false,
     humanSummary: "Analyserar...",
     nextEvent: "Hämtar data..."
   });
@@ -67,15 +67,17 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
       
       setPhase("analyzing");
 
+      // Vi plockar API-nyckeln live från Vercel-miljön
       const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
 
       if (!apiKey) {
+        // Hård och tydlig blockering om du glömt lägga in nyckeln i Vercel-inställningarna
         setTimeout(() => {
           setAiResponse({
-            isParkingSign: true,
-            allowedNow: true,
-            humanSummary: "API-nyckel saknas! Lägg till VITE_OPENAI_API_KEY i Vercels inställningar för att aktivera AI:n.",
-            nextEvent: "Flytta bilen senast kl. 14:15."
+            isParkingSign: false,
+            allowedNow: false,
+            humanSummary: "Systemfel: P-Koll kan inte starta AI-hjärnan eftersom VITE_OPENAI_API_KEY saknas i Vercels inställningar.",
+            nextEvent: ""
           });
           setPhase("result");
         }, 1500);
@@ -85,6 +87,7 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
       try {
         const currentDayTime = new Date().toLocaleString("sv-SE");
         
+        // SKARPT ANROP TILL OPENAI VISION LIVE FRÅN DIN MOBIL!
         const response = await fetch("https://openai.com", {
           method: "POST",
           headers: {
@@ -93,29 +96,30 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
           },
           body: JSON.stringify({
             model: "gpt-4o-mini",
-            response_format: { type: "json_object" },
+            response_format: { type: "json_object" }, // Tvingar AI:n att prata kodspråk (JSON)
             messages: [
               {
                 role: "user",
                 content: [
                   {
                     type: "text",
-                    text: `Du är parkeringsassistenten P-Koll. Analysera denna bild.
-                    VIKTIGT: Om bilden INTE visar en svensk parkeringsskylt (t.ex. om det är en människa, ett ansikte, en inomhusmiljö eller ett random föremål), måste du svara med isParkingSign: false.
-                    
-                    Dagens tidpunkt: ${currentDayTime}
-                    
-                    Svara EXAKT i detta JSON-format:
+                    text: `Du är den intelligenta AI-motorn för parkeringsappen P-Koll. Din uppgift är att titta på den bifogade bilden och avgöra om det är en svensk parkeringsskylt samt tolka reglerna utifrån dagens tidpunkt: ${currentDayTime}.
+
+                    Följ dessa säkerhetsregler stenhårt:
+                    1. Om bilden INTE föreställer en svensk parkeringsskylt (t.ex. om det är ett ansikte, en människa, en selfie, ett rum, en bil, ett djur eller ett slumpmässigt objekt), MÅSTE du svara med "isParkingSign": false.
+                    2. Om det är en giltig parkeringsskylt men du inte kan läsa texten ordentligt för att det är för mörkt eller suddigt, svara med "isParkingSign": false och förklara det i sammanfattningen.
+
+                    Returnera EXAKT detta JSON-format utan några extra tecken:
                     {
                       "isParkingSign": true eller false,
                       "allowedNow": true eller false,
-                      "humanSummary": "Ett kort, mänskligt och tydligt svar på svenska (max 20 ord). Om det inte är en skylt, skriv 'Hittade ingen parkeringsskylt i bilden. P-Koll kan bara läsa av parkeringsskyltar.'",
-                      "nextEvent": "Vad händer näst? T.ex. 'Avgift startar kl 09:00' eller 'Ingen städdag denna week'."
+                      "humanSummary": "Ett kort mänskligt svar på svenska (max 20 ord). Om isParkingSign är false ska du skriva: 'Hittade ingen parkeringsskylt i bilden. Försök igen!'",
+                      "nextEvent": "Tidsgräns eller nästa viktiga händelse (t.ex. 'Flytta bilen senast kl. 16:30' eller 'Avgift startar kl. 09:00'). Lämna tom om isParkingSign är false."
                     }`
                   },
                   {
                     type: "image_url",
-                    image_url: { url: imageDataUrl }
+                    image_url: { url: imageDataUrl } // Här skickas din Base64-JPEG-bild med i anropet
                   }
                 ]
               }
@@ -124,14 +128,20 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
         });
 
         const openAiData = await response.json();
-        const parsedResult = JSON.parse(openAiData.choices.message.content);
-        setAiResponse(parsedResult);
+        
+        // Kontrollera om OpenAI gav ett giltigt svar
+        if (openAiData?.choices?.[0]?.message?.content) {
+          const parsedResult = JSON.parse(openAiData.choices.message.content);
+          setAiResponse(parsedResult);
+        } else {
+          throw new Error("Ogiltigt svar från OpenAI");
+        }
       } catch (e) {
         console.error("OpenAI Error:", e);
         setAiResponse({
           isParkingSign: false,
           allowedNow: false,
-          humanSummary: "Kunde inte tolka bilden. Kontrollera din OpenAI-balans eller försök igen.",
+          humanSummary: "Kunde inte tolka bilden. Kontrollera din OpenAI-kontobalans eller försök igen med en tydligare bild.",
           nextEvent: ""
         });
       } finally {
@@ -141,12 +151,11 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    /* h-screen w-screen och z-[100] garanterar att rutan täcker absolut ALLT på telefonen */
-    <div className="fixed inset-0 h-screen w-screen z-[100] flex justify-center bg-slate-950 overflow-hidden">
+    <div className="fixed inset-0 h-screen w-screen z-50 flex justify-center bg-slate-950 overflow-hidden">
       <div className="relative flex h-full w-full max-w-[28rem] flex-col bg-black">
         
-        {/* TOPP-BAR: Tydlig "Tillbaka"-knapp för att gå ur kameran när som helst */}
-        <div className="absolute top-0 left-0 right-0 z-[110] flex items-center px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-4 bg-gradient-to-b from-black/80 to-transparent">
+        {/* Topp-bar med tillbaka-knapp */}
+        <div className="absolute top-0 left-0 right-0 z-50 flex items-center px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-4 bg-gradient-to-b from-black/80 to-transparent">
           <button
             type="button"
             onClick={onClose}
@@ -192,7 +201,7 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
                 {phase === "analyzing" ? "AI analyserar text och tider…" : "Rama in parkeringsskylten i rutan"}
               </p>
             </div>
-            {/* ISOLERAD KAMERAKNAPP (Ligger helt fritt och kan inte täckas över) */}
+            {/* Kameraavtryckaren */}
             <div className="grid place-items-center pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-6 bg-slate-950 border-t border-slate-900/60 z-30 shrink-0">
               <button
                 type="button"
@@ -208,7 +217,7 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
             </div>
           </div>
         ) : (
-          /* FULLSKÄRMS AI-RESULTAT (Helt ostört överst på skärmen) */
+          /* FULLSKÄRMS AI-RESULTAT — Dynamisk vy baserad på om det är en skylt eller inte */
           <div className="flex flex-1 flex-col justify-end p-5 pb-[max(2.5rem,env(safe-area-inset-bottom))] bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 h-full">
             <div className={`animate-pk-rise rounded-3xl border p-6 shadow-2xl space-y-4 bg-slate-900/90 backdrop-blur-md ${
               !aiResponse.isParkingSign 
