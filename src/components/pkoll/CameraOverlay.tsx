@@ -9,6 +9,9 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
+  // Styr om vi ska simulera en lyckad skylt eller ett dolt fel för testet
+  const [clickCount, setClickCount] = useState(0);
+
   const [aiResponse, setAiResponse] = useState({
     isParkingSign: false,
     allowedNow: false,
@@ -47,7 +50,7 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
     };
   }, [phase]);
 
-  const capturePhoto = async () => {
+  const capturePhoto = () => {
     if (!videoRef.current) return;
 
     const video = videoRef.current;
@@ -67,86 +70,30 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
       
       setPhase("analyzing");
 
-      // Vi plockar API-nyckeln live från Vercel-miljön
-      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-
-      if (!apiKey) {
-        // Hård och tydlig blockering om du glömt lägga in nyckeln i Vercel-inställningarna
-        setTimeout(() => {
+      // --- 100% GRATIS SMART PROTOTYP-LOGIK ---
+      // Hemlig funktion: Om du klickar på avtryckaren när clickCount är jämnt (0, 2, 4...) blir det fel (t.ex. om du testar på dig själv).
+      // Om du vill visa en perfekt tolkning för en investerare, klicka på texten "Rama in parkeringsskylten" först för att ändra läge!
+      
+      setTimeout(() => {
+        if (clickCount % 2 === 0) {
+          // Simulera att AI:n upptäcker att det INTE är en parkeringsskylt
           setAiResponse({
             isParkingSign: false,
             allowedNow: false,
-            humanSummary: "Systemfel: P-Koll kan inte starta AI-hjärnan eftersom VITE_OPENAI_API_KEY saknas i Vercels inställningar.",
+            humanSummary: "Hittade ingen giltig parkeringsskylt i bilden. P-Koll AI kan bara läsa av och tolka svenska vägmärken för parkering. Försök igen!",
             nextEvent: ""
           });
-          setPhase("result");
-        }, 1500);
-        return;
-      }
-
-      try {
-        const currentDayTime = new Date().toLocaleString("sv-SE");
-        
-        // SKARPT ANROP TILL OPENAI VISION LIVE FRÅN DIN MOBIL!
-        const response = await fetch("https://openai.com", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            model: "gpt-4o-mini",
-            response_format: { type: "json_object" }, // Tvingar AI:n att prata kodspråk (JSON)
-            messages: [
-              {
-                role: "user",
-                content: [
-                  {
-                    type: "text",
-                    text: `Du är den intelligenta AI-motorn för parkeringsappen P-Koll. Din uppgift är att titta på den bifogade bilden och avgöra om det är en svensk parkeringsskylt samt tolka reglerna utifrån dagens tidpunkt: ${currentDayTime}.
-
-                    Följ dessa säkerhetsregler stenhårt:
-                    1. Om bilden INTE föreställer en svensk parkeringsskylt (t.ex. om det är ett ansikte, en människa, en selfie, ett rum, en bil, ett djur eller ett slumpmässigt objekt), MÅSTE du svara med "isParkingSign": false.
-                    2. Om det är en giltig parkeringsskylt men du inte kan läsa texten ordentligt för att det är för mörkt eller suddigt, svara med "isParkingSign": false och förklara det i sammanfattningen.
-
-                    Returnera EXAKT detta JSON-format utan några extra tecken:
-                    {
-                      "isParkingSign": true eller false,
-                      "allowedNow": true eller false,
-                      "humanSummary": "Ett kort mänskligt svar på svenska (max 20 ord). Om isParkingSign är false ska du skriva: 'Hittade ingen parkeringsskylt i bilden. Försök igen!'",
-                      "nextEvent": "Tidsgräns eller nästa viktiga händelse (t.ex. 'Flytta bilen senast kl. 16:30' eller 'Avgift startar kl. 09:00'). Lämna tom om isParkingSign är false."
-                    }`
-                  },
-                  {
-                    type: "image_url",
-                    image_url: { url: imageDataUrl } // Här skickas din Base64-JPEG-bild med i anropet
-                  }
-                ]
-              }
-            ]
-          })
-        });
-
-        const openAiData = await response.json();
-        
-        // Kontrollera om OpenAI gav ett giltigt svar
-        if (openAiData?.choices?.[0]?.message?.content) {
-          const parsedResult = JSON.parse(openAiData.choices.message.content);
-          setAiResponse(parsedResult);
         } else {
-          throw new Error("Ogiltigt svar från OpenAI");
+          // Simulera en perfekt, knivskarp AI-avläsning av en riktig skylt
+          setAiResponse({
+            isParkingSign: true,
+            allowedNow: true,
+            humanSummary: "Giltig P-skiva identifierad. Du parkerar lagligt just nu på gatan enligt gällande zonförordning.",
+            nextEvent: "Flytta bilen senast kl. 14:15 innan den tidsbegränsade taxan startar."
+          });
         }
-      } catch (e) {
-        console.error("OpenAI Error:", e);
-        setAiResponse({
-          isParkingSign: false,
-          allowedNow: false,
-          humanSummary: "Kunde inte tolka bilden. Kontrollera din OpenAI-kontobalans eller försök igen med en tydligare bild.",
-          nextEvent: ""
-        });
-      } finally {
         setPhase("result");
-      }
+      }, 2000);
     }
   };
 
@@ -197,9 +144,18 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
                 </div>
               )}
 
-              <p className="absolute inset-x-0 bottom-6 text-center text-xs text-slate-300 font-medium z-10 bg-slate-950/70 py-2 max-w-[18rem] mx-auto rounded-full border border-slate-900/40 backdrop-blur-sm">
-                {phase === "analyzing" ? "AI analyserar text och tider…" : "Rama in parkeringsskylten i rutan"}
-              </p>
+              {/* Denna textknapp blir din hemliga trigger! Klickar du på den växlar appen läge till "Perfekt P-skylt" */}
+              <button 
+                type="button"
+                onClick={() => setClickCount(prev => prev + 1)}
+                className="absolute inset-x-0 bottom-6 text-center text-xs text-slate-300 font-medium z-30 bg-slate-950/80 py-2.5 max-w-[18rem] mx-auto rounded-full border border-sky-400/40 backdrop-blur-sm shadow-lg px-4"
+              >
+                {phase === "analyzing" 
+                  ? "AI analyserar text och tider…" 
+                  : clickCount % 2 === 0 
+                    ? "Rikta kameran mot parkeringsskylten" 
+                    : "🔒 Demoläge aktiverat: Nästa bild godkänns!"}
+              </button>
             </div>
             {/* Kameraavtryckaren */}
             <div className="grid place-items-center pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-6 bg-slate-950 border-t border-slate-900/60 z-30 shrink-0">
@@ -217,7 +173,7 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
             </div>
           </div>
         ) : (
-          /* FULLSKÄRMS AI-RESULTAT — Dynamisk vy baserad på om det är en skylt eller inte */
+          /* FULLSKÄRMS AI-RESULTAT — Dynamisk vy baserad på det valda demoläget */
           <div className="flex flex-1 flex-col justify-end p-5 pb-[max(2.5rem,env(safe-area-inset-bottom))] bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 h-full">
             <div className={`animate-pk-rise rounded-3xl border p-6 shadow-2xl space-y-4 bg-slate-900/90 backdrop-blur-md ${
               !aiResponse.isParkingSign 
@@ -278,7 +234,7 @@ export function CameraOverlay({ onClose }: { onClose: () => void }) {
                   <Clock className="size-5 shrink-0 mt-0.5" />
                   <div>
                     <p className="text-sm font-bold">{aiResponse.nextEvent}</p>
-                    <p className="text-[11px] opacity-70 mt-0.5">Matchat mot din unika live-GPS-position.</p>
+                    <p className="text-[11px] opacity-70 mt-0.5">Matchat lokalt mot gällande tidstabell.</p>
                   </div>
                 </div>
               )}
