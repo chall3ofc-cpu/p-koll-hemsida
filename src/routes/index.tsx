@@ -82,23 +82,8 @@ function KartaPage() {
 
       {/* Bottom sheet & Controls container */}
       <div className="relative z-20 mt-auto flex flex-col w-full">
-        {/* Knappraden ovanför panelen (Centrera + Stäng/Öppna-knapp) */}
-        <div className="flex justify-between px-4 pb-3">
-          {/* Ny röd/grön knapp för att styra rutan */}
-          <button
-            type="button"
-            onClick={() => setIsExpanded(!isExpanded)}
-            aria-label={isExpanded ? "Dölj parkeringsinfo" : "Visa parkeringsinfo"}
-            className={`tap grid size-12 place-items-center rounded-2xl shadow-xl text-white transition-all duration-300 transform active:scale-95 ${
-              isExpanded 
-                ? "bg-rose-600 hover:bg-rose-500 shadow-rose-950/20" 
-                : "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-950/20"
-            }`}
-          >
-            {isExpanded ? <ChevronDown className="size-6 animate-bounce" /> : <ChevronUp className="size-6" />}
-          </button>
-
-          {/* Centrera kartan */}
+        {/* Knappraden ovanför panelen (Bara centrera-knappen till höger nu) */}
+        <div className="flex justify-end px-4 pb-3">
           <button
             type="button"
             aria-label="Centrera kartan på min position"
@@ -111,11 +96,25 @@ function KartaPage() {
         {/* Bottenpanelen med inbyggd slide-animering */}
         <section 
           className={`glass rounded-t-[2rem] px-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] shadow-[0_-20px_60px_-20px_rgba(0,0,0,0.9)] transition-all duration-500 ease-in-out flex flex-col ${
-            isExpanded ? "max-h-[58vh] pt-6" : "h-[0px] p-0 border-t-0 overflow-hidden"
+            isExpanded ? "max-h-[58vh] pt-3" : "h-[65px] pt-2 overflow-hidden"
           }`}
         >
-          {/* Litet diskret handtag i toppen av panelen (dekorativt nu när vi har knappen) */}
-          {isExpanded && <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-foreground/10 shrink-0" />}
+          {/* NY KNAPP PLACERAD EXAKT DÄR LINJEN VAR - Centrerad i toppen */}
+          <div className="w-full flex justify-center pt-1 pb-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsExpanded(!isExpanded)}
+              aria-label={isExpanded ? "Dölj parkeringsinfo" : "Visa parkeringsinfo"}
+              className={`tap flex items-center justify-center h-7 px-5 rounded-full shadow-md text-white font-medium text-[11px] uppercase tracking-wider transition-all duration-300 transform active:scale-95 ${
+                isExpanded 
+                  ? "bg-rose-600 hover:bg-rose-500 shadow-rose-950/20" 
+                  : "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-950/20"
+              }`}
+            >
+              <span className="mr-1">{isExpanded ? "Dölj info" : "Visa info"}</span>
+              {isExpanded ? <ChevronDown className="size-3.5 animate-bounce" /> : <ChevronUp className="size-3.5" />}
+            </button>
+          </div>
 
           {/* Allt detta innehåll döljs mjukt när panelen är minimerad */}
           <div className={`flex-1 overflow-y-auto space-y-4 transition-opacity duration-300 custom-scrollbar ${
