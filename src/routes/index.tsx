@@ -93,22 +93,22 @@ function KartaPage() {
           </button>
         </div>
 
-        {/* Bottenpanelen med inbyggd slide-animering */}
+        {/* Bottenpanelen med inbyggd slide-animering och anpassad höjd för att inte krocka med TabBar */}
         <section 
           className={`glass rounded-t-[2rem] px-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] shadow-[0_-20px_60px_-20px_rgba(0,0,0,0.9)] transition-all duration-500 ease-in-out flex flex-col ${
-            isExpanded ? "max-h-[58vh] pt-3" : "h-[65px] pt-2 overflow-hidden"
+            isExpanded ? "max-h-[58vh] pt-3" : "h-[135px] pt-2 pb-16 overflow-hidden border-b-0"
           }`}
         >
-          {/* NY KNAPP PLACERAD EXAKT DÄR LINJEN VAR - Centrerad i toppen */}
+          {/* Centrerad knapp i toppen — Trycks upp säkert över nav-baren när panelen stängs */}
           <div className="w-full flex justify-center pt-1 pb-2 shrink-0">
             <button
               type="button"
               onClick={() => setIsExpanded(!isExpanded)}
               aria-label={isExpanded ? "Dölj parkeringsinfo" : "Visa parkeringsinfo"}
-              className={`tap flex items-center justify-center h-7 px-5 rounded-full shadow-md text-white font-medium text-[11px] uppercase tracking-wider transition-all duration-300 transform active:scale-95 ${
+              className={`tap flex items-center justify-center h-8 px-6 rounded-full shadow-lg text-white font-semibold text-[11px] uppercase tracking-wider transition-all duration-300 transform active:scale-95 ${
                 isExpanded 
                   ? "bg-rose-600 hover:bg-rose-500 shadow-rose-950/20" 
-                  : "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-950/20"
+                  : "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-950/45 border border-emerald-400/20 animate-pulse"
               }`}
             >
               <span className="mr-1">{isExpanded ? "Dölj info" : "Visa info"}</span>
@@ -166,6 +166,7 @@ function KartaPage() {
               </button>
             </div>
 
+            {/* Dela plats */}
             <button
               onClick={() => setShare(true)}
               className="tap flex w-full items-center justify-center gap-2 rounded-2xl border border-hairline py-3 text-sm font-semibold text-muted-foreground"
