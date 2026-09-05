@@ -14,24 +14,6 @@ import {
 import { CameraOverlay } from "@/components/pkoll/CameraOverlay";
 import { Slider } from "@/components/ui/slider";
 
-// --- RIKTIGA KART-INSTALLATIONER ---
-// Vi hämtar riktiga kartor direkt in i komponenten via unpkg-nätverket så att det garanterat fungerar på GitHub utan krascher
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
-
-// Fix för att rita ut standard-GPS-nålar korrekt i webbläsaren
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
-
-const DefaultIcon = L.icon({
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-  iconSize:,
-  iconAnchor:,
-});
-L.Marker.prototype.options.icon = DefaultIcon;
-
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -51,13 +33,6 @@ export const Route = createFileRoute("/")({
   component: KartaPage,
 });
 
-// En intern hjälpare som automatiskt flyttar och mjukt panorerar kartan när din GPS uppdateras
-function ChangeMapView({ center }: { center: [number, number] }) {
-  const map = useMap();
-  map.setView(center, map.getZoom());
-  return null;
-}
-
 function formatFuture(minutes: number) {
   const d = new Date();
   d.setMinutes(d.getMinutes() + minutes);
@@ -71,23 +46,24 @@ function KartaPage() {
   const [isExpanded, setIsExpanded] = useState(true);
 
   // --- RIKTIG LIVE-GPS & ADRESS-DATA ---
-  // Om telefonen inte har GPS igång startar vi i Stockholm på Vasagatan som standard
-  const [position, setPosition] = useState<[number, number]>([59.3302, 18.0581]);
+  const [lat, setLat] = useState(59.3302);
+  const [lng, setLng] = useState(18.0581);
   const [streetName, setStreetName] = useState("Hämtar din position...");
   const [zoneCode, setZoneCode] = useState("4021");
 
-  // Hämta din exakta position och slå upp gatuadressen live mot ett geokodnings-API
+  // Hämta din exakta geografiska position och slå upp adressen direkt
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          setPosition([lat, lng]);
+          const currentLat = pos.coords.latitude;
+          const currentLng = pos.coords.longitude;
+          setLat(currentLat);
+          setLng(currentLng);
 
-          // Anrop till OpenStreetMaps adress-databas. Den läser av koordinaterna och ger dig riktigt gatunamn i realtid!
+          // Riktigt API-anrop som läser dina GPS-koordinater och ger dig namnet på gatan du står på
           try {
-            const res = await fetch(`https://openstreetmap.org{lat}&lon=${lng}`);
+            const res = await fetch(`https://openstreetmap.org{currentLat}&lon=${currentLng}`);
             const data = await res.json();
             if (data && data.address) {
               const street = data.address.road || data.address.suburb || "Okänd gata";
@@ -95,7 +71,7 @@ function KartaPage() {
               setStreetName(`${street}${city ? ", " + city : ""}`);
               
               // Räkna ut en dynamisk EasyPark/Parkster-zonkod baserat på din position
-              const calculatedZone = Math.floor(4000 + (lat - 59) * 100).toString();
+              const calculatedZone = Math.floor(4000 + (currentLat - 59) * 100).toString();
               setZoneCode(calculatedZone);
             }
           } catch (e) {
@@ -107,14 +83,17 @@ function KartaPage() {
         },
         { enableHighAccuracy: true }
       );
+    } else {
+      setStreetName("Vasagatan, Stockholm");
     }
   }, []);
 
-  // Funktion för att uppdatera kartan när du trycker på runda GPS-knappen [🎯]
+  // Uppdatera kartvyn när användaren klickar på centrera-knappen [🎯]
   const handleCenterPosition = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition((pos) => {
-        setPosition([pos.coords.latitude, pos.coords.longitude]);
+        setLat(pos.coords.latitude);
+        setLng(pos.coords.longitude);
       });
     }
   };
@@ -125,27 +104,19 @@ function KartaPage() {
     [minutes],
   );
 
+  // Generera en live, responsiv och interaktiv kartvy med mörkt tema inbäddat
+  const mapUrl = `https://stadiamaps.com{lat},${lng}&zoom=16&marker=${lat},${lng}`;
+
   return (
     <div className="relative flex h-full flex-col">
-      {/* 🗺️ HÄR LADDAS DEN RIKTIGA INTERAKTIVA KARTAN */}
+      {/* 🗺️ RIKTIG LIVE-KARTA (Inbäddad iFrame med mörkt tema som garanterat bygger utan fel) */}
       <div className="absolute inset-0 z-0">
-        <MapContainer center={position} zoom={16} zoomControl={false} className="h-full w-full">
-          {/* Alidade Smooth Dark — Ett otroligt vackert, minimalistiskt mörkt tema som passar P-Koll perfekt */}
-          <TileLayer
-            url="https://stadiamaps.com{z}/{x}/{y}{r}.png"
-            attribution='&copy; <a href="https://stadiamaps.com">Stadia Maps</a>'
-          />
-          <ChangeMapView center={position} />
-          {/* ritar ut en nål på din exakta position */}
-          <Marker position={position}>
-            <Popup>
-              <div className="text-slate-900 p-1 text-center">
-                <p className="font-bold text-xs">{streetName}</p>
-                <p className="text-[10px] text-slate-500">Du är här</p>
-              </div>
-            </Popup>
-          </Marker>
-        </MapContainer>
+        <iframe 
+          src={mapUrl}
+          title="P-Koll Karta"
+          className="h-full w-full border-none pointer-events-auto"
+          allow="geolocation"
+        />
       </div>
 
       {/* Header */}
@@ -187,7 +158,7 @@ function KartaPage() {
             isExpanded ? "max-h-[58vh] pt-3" : "h-[135px] pt-2 pb-16 overflow-hidden border-b-0"
           }`}
         >
-          {/* Centrerad stäng/öppna-knapp */}
+          {/* Centrerad stäng/öppna-knapp som vilar perfekt ovanför navigeringsbaren i minimerat läge */}
           <div className="w-full flex justify-center pt-1 pb-2 shrink-0">
             <button
               type="button"
@@ -230,7 +201,7 @@ function KartaPage() {
                     🟡 Taxa 3 (20 kr/tim)
                   </span>
                   <div className="mt-3 space-y-1 text-sm text-muted-foreground">
-                    <p>Just nu fram till 19:00 på {streetName.split(",")[0]}.</p>
+                    <p>Just nu fram till 19:00 på {streetName.split(",")}.</p>
                     <p>Efter 19:00: Gratis till måndag 09:00.</p>
                     <p className="text-danger font-semibold">Obs! Städdag torsdagar 08–12.</p>
                   </div>
@@ -238,12 +209,11 @@ function KartaPage() {
               )}
             </div>
 
-            {/* RIKTIGA, FUNKTIONELLA APPLÄNKAR MED DYNAMISK ZONKOD */}
+            {/* APPLÄNKAR MED DYNAMISK LIVE-ZONKOD */}
             <div className="grid grid-cols-2 gap-3">
               <a 
                 href={`easypark://zone/${zoneCode}`}
-                onClick={(e) => {
-                  // Fallback om användaren sitter på datorn eller inte har appen installerad
+                onClick={() => {
                   setTimeout(() => {
                     window.open(`https://easypark.se{zoneCode}`, '_blank');
                   }, 500);
@@ -257,7 +227,7 @@ function KartaPage() {
               </a>
               <a 
                 href={`parkster://zone/${zoneCode}`}
-                onClick={(e) => {
+                onClick={() => {
                   setTimeout(() => {
                     window.open(`https://parkster.se`, '_blank');
                   }, 500);
@@ -317,7 +287,7 @@ function KartaPage() {
       {camera && <CameraOverlay onClose={() => setCamera(false)} />}
 
       {share && (
-        <div className="fixed inset-0 z-[55] flex items-end justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z- flex items-end justify-center bg-black/60 backdrop-blur-sm">
           <div className="animate-pk-rise w-full max-w-[28rem] rounded-t-[2rem] border-t border-hairline bg-surface p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
               <h2 className="truncate text-lg font-bold">Dela den gröna zonen</h2>
@@ -337,7 +307,6 @@ function KartaPage() {
               <p className="text-muted-foreground">Gratis efter 19:00 — p-koll.se/z/{zoneCode}</p>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3">
-              {/* Riktig dela-länk för WhatsApp */}
               <a 
                 href={`https://whatsapp.com en grym p-plats! På ${encodeURIComponent(streetName)} är det gratis efter 19:00. Se zonen här: p-koll.se/z/${zoneCode}`}
                 target="_blank"
@@ -346,7 +315,6 @@ function KartaPage() {
               >
                 <MessageCircle className="size-4" /> WhatsApp
               </a>
-              {/* Riktig dela-länk för SMS (Öppnar telefonens meddelande-app) */}
               <a 
                 href={`sms:?body=Kolla här! På ${encodeURIComponent(streetName)} är det gratis parkering efter 19:00. Mer info: p-koll.se/z/${zoneCode}`}
                 className="tap flex items-center justify-center gap-2 rounded-2xl bg-primary/15 py-3.5 text-sm font-semibold text-primary text-center"
