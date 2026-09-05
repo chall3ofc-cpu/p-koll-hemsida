@@ -82,8 +82,23 @@ function KartaPage() {
 
       {/* Bottom sheet & Controls container */}
       <div className="relative z-20 mt-auto flex flex-col w-full">
-        {/* Centrera-knapp */}
-        <div className="flex justify-end px-4 pb-3">
+        {/* Knappraden ovanför panelen (Centrera + Stäng/Öppna-knapp) */}
+        <div className="flex justify-between px-4 pb-3">
+          {/* Ny röd/grön knapp för att styra rutan */}
+          <button
+            type="button"
+            onClick={() => setIsExpanded(!isExpanded)}
+            aria-label={isExpanded ? "Dölj parkeringsinfo" : "Visa parkeringsinfo"}
+            className={`tap grid size-12 place-items-center rounded-2xl shadow-xl text-white transition-all duration-300 transform active:scale-95 ${
+              isExpanded 
+                ? "bg-rose-600 hover:bg-rose-500 shadow-rose-950/20" 
+                : "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-950/20"
+            }`}
+          >
+            {isExpanded ? <ChevronDown className="size-6 animate-bounce" /> : <ChevronUp className="size-6" />}
+          </button>
+
+          {/* Centrera kartan */}
           <button
             type="button"
             aria-label="Centrera kartan på min position"
@@ -96,25 +111,11 @@ function KartaPage() {
         {/* Bottenpanelen med inbyggd slide-animering */}
         <section 
           className={`glass rounded-t-[2rem] px-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] shadow-[0_-20px_60px_-20px_rgba(0,0,0,0.9)] transition-all duration-500 ease-in-out flex flex-col ${
-            isExpanded ? "max-h-[58vh] pt-3" : "h-[75px] pt-2 overflow-hidden"
+            isExpanded ? "max-h-[58vh] pt-6" : "h-[0px] p-0 border-t-0 overflow-hidden"
           }`}
         >
-          {/* DRAG HANDLE / KLICK-ZON - Hanterar stängning/öppning */}
-          <button
-            type="button"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full flex flex-col items-center justify-center py-2 mb-2 outline-none tap"
-            aria-label={isExpanded ? "Minimera parkeringsinfo" : "Expandera parkeringsinfo"}
-          >
-            <div className="h-1.5 w-10 rounded-full bg-foreground/20 mb-1" />
-            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-              {isExpanded ? (
-                <>Dra ned för karta <ChevronDown className="size-3" /></>
-              ) : (
-                <>Visa parkeringsinfo <ChevronUp className="size-3" /></>
-              )}
-            </div>
-          </button>
+          {/* Litet diskret handtag i toppen av panelen (dekorativt nu när vi har knappen) */}
+          {isExpanded && <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-foreground/10 shrink-0" />}
 
           {/* Allt detta innehåll döljs mjukt när panelen är minimerad */}
           <div className={`flex-1 overflow-y-auto space-y-4 transition-opacity duration-300 custom-scrollbar ${
@@ -184,7 +185,7 @@ function KartaPage() {
               <Slider
                 className="mt-5"
                 value={[minutes]}
-                onValueChange={(v) => setMinutes(v[0] ?? 0)}
+                onValueChange={(v) => setMinutes(v ?? 0)}
                 min={0}
                 max={240}
                 step={60}
@@ -211,7 +212,7 @@ function KartaPage() {
       {camera && <CameraOverlay onClose={() => setCamera(false)} />}
 
       {share && (
-        <div className="fixed inset-0 z-[55] flex items-end justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z- flex items-end justify-center bg-black/60 backdrop-blur-sm">
           <div className="animate-pk-rise w-full max-w-[28rem] rounded-t-[2rem] border-t border-hairline bg-surface p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
               <h2 className="truncate text-lg font-bold">Dela den gröna zonen</h2>
